@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CYBER GRID SENTINEL | Neural Pay Scanner</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+<style>
+/*  RESET & ROOT */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --cyan:    #00f7ff;
+  --pink:    #ff0055;
+  --green:   #00ff9c;
+  --orange:  #ff9900;
+  --bg:      #000408;
+  --panel:   rgba(0, 20, 35, 0.75);
+  --border:  rgba(0, 247, 255, 0.25);
+  --glow:    rgba(0, 247, 255, 0.15);
+  --font-mono: 'Share Tech Mono', monospace;
+  --font-orb:  'Orbitron', sans-serif;
+}
+
+/*  CURSOR  */
+*, *::before, *::after { cursor: none !important; }
+
+#cursor {
+  position: fixed;
+  width: 14px; height: 14px;
+  border: 2px solid var(--cyan);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  transition: transform 0.05s, background 0.2s, border-color 0.2s;
+  box-shadow: 0 0 8px var(--cyan), 0 0 20px rgba(0,247,255,0.3);
+  mix-blend-mode: screen;
+}
+
+#cursor-trail {
+  position: fixed;
+  width: 36px; height: 36px;
+  border: 1px solid rgba(0,247,255,0.4);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9998;
+  transform: translate(-50%, -50%);
+  transition: left 0.12s ease, top 0.12s ease;
+}
+
+#cursor-crosshair {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9997;
+  transform: translate(-50%, -50%);
+}
+#cursor-crosshair::before,
+#cursor-crosshair::after {
+  content: '';
+  position: absolute;
+  background: rgba(0,247,255,0.5);
+}
+#cursor-crosshair::before {
+  width: 1px; height: 20px;
+  left: 0; top: -10px;
+}
+#cursor-crosshair::after {
+  height: 1px; width: 20px;
+  top: 0; left: -10px;
+}
+
+body:has(.danger-active) #cursor { border-color: var(--pink); box-shadow: 0 0 8px var(--pink); }
+body:has(.safe-active) #cursor { border-color: var(--green); box-shadow: 0 0 8px var(--green); }
+
+/*  BODY & GRID  */
+body {
+  background: var(--bg);
+  font-family: var(--font-mono);
+  color: var(--cyan);
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* Animated moving grid */
+body::before {
+  content: "";
+  position: fixed;
+  top: -50%; left: -50%;
+  width: 300%; height: 300%;
+  background:
+    linear-gradient(rgba(0,247,255,0.07) 1px, transparent 10px),
+    linear-gradient(90deg, rgba(0,247,255,0.07) 1px, transparent 10px);
+  background-size: 40px 40px;
+  animation: gridDrift 8s linear infinite;
+  z-index: -2;
+  pointer-events: none;
+}
+
+/* Vignette overlay */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.7) 100%);
+  z-index: -1;
+  pointer-events: none;
+}
+
+@keyframes gridDrift {
+  from { transform: translate(0,0); }
+  to   { transform: translate(-80px,-80px); }
+}
+
+/*  ALERT STATES  */
+body.danger-active {
+  animation: dangerPulse 0.6s ease-in-out infinite;
+}
+@keyframes dangerPulse {
+  0%, 100% { box-shadow: inset 0 0 120px rgba(255,0,85,0.15); }
+  50%       { box-shadow: inset 0 0 200px rgba(255,0,85,0.35); }
+}
+
+/*  HEADER  */
+header {
+  position: relative;
+  text-align: center;
+  padding: 32px 20px 24px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0,0,0,0.6);
+  overflow: hidden;
+}
+header::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+  animation: scanline 3s ease-in-out infinite;
+}
+@keyframes scanline {
+  0%, 100% { opacity: 0.3; transform: scaleX(0.3); }
+  50%       { opacity: 1;   transform: scaleX(1); }
+}
+
+.logo-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+.logo-icon {
+  width: 44px; height: 44px;
+  border: 2px solid var(--cyan);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  box-shadow: 0 0 20px var(--cyan), inset 0 0 10px rgba(0,247,255,0.1);
+  animation: rotateBorder 4s linear infinite;
+  position: relative;
+}
+.logo-icon::before {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border: 1px dashed rgba(0,247,255,0.4);
+  border-radius: 50%;
+  animation: rotateBorder 2s linear infinite reverse;
+}
+@keyframes rotateBorder {
+  to { transform: rotate(360deg); }
+}
+
+h1 {
+  font-family: var(--font-orb);
+  font-size: clamp(20px, 4vw, 36px);
+  font-weight: 900;
+  letter-spacing: 6px;
+  text-transform: uppercase;
+  text-shadow: 0 0 20px var(--cyan), 0 0 40px rgba(0,247,255,0.4);
+}
+
+.header-sub {
+  font-size: 11px;
+  letter-spacing: 3px;
+  opacity: 0.5;
+  margin-top: 8px;
+  text-transform: uppercase;
+}
+
+/*  NAV */
+nav {
+  position: fixed;
+  top: 14px; right: 20px;
+  z-index: 1000;
+}
+.nav-toggle {
+  display: flex; flex-direction: column; gap: 5px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  background: rgba(0,0,0,0.8);
+}
+.nav-toggle span {
+  width: 22px; height: 2px;
+  background: var(--cyan);
+  display: block;
+  transition: 0.3s;
+}
+.nav-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 180px;
+  background: rgba(0,5,10,0.95);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+}
+.nav-dropdown.open { display: block; }
+.nav-dropdown button {
+  display: block;
+  width: 100%;
+  padding: 12px 20px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--cyan);
+  font-family: var(--font-orb);
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-align: left;
+  transition: 0.2s;
+}
+.nav-dropdown button:last-child { border-bottom: none; }
+.nav-dropdown button:hover { background: rgba(0,247,255,0.1); padding-left: 28px; }
+
+/*  PAGES  */
+.page { display: none; }
+.page.active { display: block; }
+
+/* CONTAINER  */
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px 20px;
+  display: grid;
+  grid-template-columns: 200px 1fr 200px;
+  gap: 24px;
+}
+
+@media (max-width: 860px) {
+  .container { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+}
+
+/*  SIDEBAR  */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.sidebar-panel {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  padding: 16px;
+  font-size: 12px;
+  line-height: 2;
+}
+.sidebar-title {
+  font-family: var(--font-orb);
+  font-size: 10px;
+  letter-spacing: 2px;
+  opacity: 0.5;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+.status-dot {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  margin-right: 6px;
+  animation: blink 1.5s ease-in-out infinite;
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/*  MAIN PANELS  */
+.main-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.panel {
+  position: relative;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  backdrop-filter: blur(12px);
+  padding: 24px;
+  overflow: hidden;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+.panel:hover {
+  border-color: rgba(0,247,255,0.5);
+  box-shadow: 0 0 30px rgba(0,247,255,0.08);
+}
+
+/* Animated corner accents */
+.panel::before, .panel::after {
+  content: '';
+  position: absolute;
+  width: 16px; height: 16px;
+  border-color: var(--cyan);
+  border-style: solid;
+  opacity: 0.6;
+}
+.panel::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+.panel::after  { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+
+.panel-title {
+  font-family: var(--font-orb);
+  font-size: 11px;
+  letter-spacing: 3px;
+  opacity: 0.55;
+  text-transform: uppercase;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.panel-title::before {
+  content: '';
+  width: 20px; height: 1px;
+  background: var(--cyan);
+  opacity: 0.5;
+}
+
+/* Scanner line */
+.scan-line {
+  position: absolute;
+  left: 0; width: 100%; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+  box-shadow: 0 0 12px var(--cyan);
+  opacity: 0;
+  top: 0;
+  pointer-events: none;
+}
+.scan-line.active {
+  opacity: 1;
+  animation: sweepDown 1.4s ease-in-out forwards;
+}
+@keyframes sweepDown {
+  0%   { top: 0%;   opacity: 1; }
+  80%  { top: 100%; opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+
+/*  INPUTS  */
+.input-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cyber-input {
+  background: rgba(0,0,0,0.6);
+  border: 1px solid rgba(0,247,255,0.3);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 12px 16px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+}
+.cyber-input::placeholder { color: rgba(0,247,255,0.3); }
+.cyber-input:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 12px rgba(0,247,255,0.2), inset 0 0 8px rgba(0,247,255,0.05);
+}
+
+.cyber-file {
+  background: rgba(0,0,0,0.5);
+  border: 1px dashed rgba(0,247,255,0.3);
+  color: rgba(0,247,255,0.6);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 10px 16px;
+  width: 100%;
+}
+
+/* BUTTONS  */
+.btn {
+  font-family: var(--font-orb);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  padding: 14px 24px;
+  border: 1px solid var(--cyan);
+  background: transparent;
+  color: var(--cyan);
+  position: relative;
+  overflow: hidden;
+  transition: 0.25s;
+}
+.btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--cyan);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.25s ease;
+  z-index: -1;
+}
+.btn:hover::before { transform: scaleX(1); }
+.btn:hover { color: #000; box-shadow: 0 0 24px var(--cyan); }
+.btn:active { transform: scale(0.98); }
+.btn.full { width: 100%; }
+
+/*  STATUS GRID  */
+.status-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.status-card {
+  border: 1px solid var(--border);
+  background: rgba(0,0,0,0.4);
+  padding: 14px 16px;
+  transition: 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+.status-card::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 1px;
+  background: var(--cyan);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.4s ease;
+}
+.status-card.has-result::after { transform: scaleX(1); }
+.status-label {
+  font-size: 10px;
+  letter-spacing: 2px;
+  opacity: 0.5;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+.status-value {
+  font-family: var(--font-orb);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.val-safe    { color: var(--green); text-shadow: 0 0 8px var(--green); }
+.val-danger  { color: var(--pink);  text-shadow: 0 0 8px var(--pink); }
+.val-warn    { color: var(--orange);text-shadow: 0 0 8px var(--orange); }
+.val-neutral { color: var(--cyan);  opacity: 0.4; }
+
+/*  VERDICT BANNER  */
+#verdictBanner {
+  display: none;
+  text-align: center;
+  padding: 16px;
+  font-family: var(--font-orb);
+  font-size: 13px;
+  letter-spacing: 3px;
+  border: 1px solid;
+  margin-top: 6px;
+  position: relative;
+  overflow: hidden;
+}
+#verdictBanner.safe-verdict {
+  border-color: var(--green);
+  color: var(--green);
+  background: rgba(0,255,156,0.06);
+  text-shadow: 0 0 10px var(--green);
+  display: block;
+}
+#verdictBanner.danger-verdict {
+  border-color: var(--pink);
+  color: var(--pink);
+  background: rgba(255,0,85,0.08);
+  text-shadow: 0 0 10px var(--pink);
+  display: block;
+  animation: verdictFlash 0.5s ease-in-out 3;
+}
+@keyframes verdictFlash {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+/*  SYSTEM LOG  */
+#sysLog {
+  height: 200px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--cyan) transparent;
+  font-size: 12px;
+  line-height: 1.8;
+  padding: 4px 0;
+}
+#sysLog p {
+  margin: 0;
+  padding: 2px 0;
+  border-bottom: 1px solid rgba(0,247,255,0.04);
+  opacity: 0;
+  animation: logFadeIn 0.3s forwards;
+}
+@keyframes logFadeIn {
+  to { opacity: 1; }
+}
+#sysLog p.log-safe   { color: var(--green); }
+#sysLog p.log-danger { color: var(--pink); }
+#sysLog p.log-warn   { color: var(--orange); }
+#sysLog p.log-info   { color: var(--cyan); opacity: 0.7; }
+
+/*  RISK METER */
+.risk-bar-wrap {
+  margin-top: 12px;
+}
+.risk-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  opacity: 0.6;
+  margin-bottom: 6px;
+}
+.risk-track {
+  height: 4px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.risk-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--cyan);
+  transition: width 0.8s cubic-bezier(0.4,0,0.2,1), background 0.4s;
+  box-shadow: 0 0 8px currentColor;
+}
+
+/* ABOUT PAGE */
+#aboutPage {
+  max-width: 700px;
+  margin: 60px auto;
+  text-align: center;
+  padding: 40px 24px;
+}
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 16px;
+  margin-top: 30px;
+}
+.team-card {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  padding: 20px 10px;
+  font-family: var(--font-orb);
+  font-size: 11px;
+  letter-spacing: 1px;
+  transition: 0.3s;
+}
+.team-card:hover {
+  border-color: var(--cyan);
+  box-shadow: 0 0 20px rgba(0,247,255,0.15);
+  transform: translateY(-4px);
+}
+.team-avatar {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  border: 1px solid var(--cyan);
+  margin: 0 auto 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  box-shadow: 0 0 12px rgba(0,247,255,0.3);
+}
+.about-desc {
+  font-size: 13px;
+  line-height: 2;
+  opacity: 0.7;
+  margin: 24px 0;
+}
+
+/*  FOOTER  */
+footer {
+  text-align: right;
+  padding: 16px 24px;
+  font-size: 10px;
+  letter-spacing: 2px;
+  opacity: 0.35;
+  border-top: 1px solid var(--border);
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: rgba(0,0,0,0.6);
+  pointer-events: none;
+}
+</style>
+</head>
+<body>
+
+<!-- CUSTOM CURSOR -->
+<div id="cursor"></div>
+<div id="cursor-trail"></div>
+<div id="cursor-crosshair"></div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-toggle" onclick="toggleNav()">
+    <span></span><span></span><span></span>
+  </div>
+  <div class="nav-dropdown" id="navDrop">
+    <button onclick="showPage('home')">◈ HOME</button>
+    <button onclick="showPage('about')">◈ ABOUT US</button>
+  </div>
+</nav>
+
+<!-- HEADER -->
+<header>
+  <div class="logo-line">
+    <div class="logo-icon">⬡</div>
+    <h1>CYBER GRID SENTINEL</h1>
+    <div class="logo-icon">⬡</div>
+  </div>
+  <div class="header-sub">Neural Pay Scanner · Security Protocol v4.0.2 · Active</div>
+</header>
+
+<!-- HOME PAGE -->
+<div id="homePage" class="page active">
+  <div class="container">
+
+    <!-- LEFT SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-panel">
+        <div class="sidebar-title">System Status</div>
+        <div><span class="status-dot"></span>NODE: ONLINE</div>
+        <div><span class="status-dot"></span>SHIELD: ACTIVE</div>
+        <div id="threatDisplay"><span class="status-dot" style="background:var(--orange);box-shadow:0 0 6px var(--orange);"></span>THREAT: DYNAMIC</div>
+      </div>
+      <div class="sidebar-panel">
+        <div class="sidebar-title">Scan Counter</div>
+        <div style="font-family:var(--font-orb);font-size:28px;text-align:center;margin:8px 0;" id="scanCount">000</div>
+        <div style="opacity:0.4;font-size:11px;text-align:center;">TOTAL SCANS</div>
+      </div>
+      <div class="sidebar-panel">
+        <div class="sidebar-title">Last Result</div>
+        <div id="lastResultSide" style="font-family:var(--font-orb);font-size:12px;opacity:0.5;">NONE</div>
+      </div>
+    </aside>
+
+    <!-- MAIN COLUMN -->
+    <main class="main-col">
+
+      <!-- UPI / URL SCANNER -->
+      <div class="panel" id="upiPanel">
+        <div class="scan-line" id="upiScanLine"></div>
+        <div class="panel-title">UPI · URL · TARGET SCANNER</div>
+        <div class="input-row">
+          <input type="file" class="cyber-file" id="qrFileInput" accept="image/*">
+          <input class="cyber-input" id="upiInput"
+            placeholder="upi://pay?pa=address@upi&pn=Name&am=1.00  or  https://...">
+          <button class="btn full" onclick="executeUPIScan()">⚡ EXECUTE ANALYSIS</button>
+        </div>
+
+        <div class="status-grid" style="margin-top:20px;">
+          <div class="status-card" id="card1">
+            <div class="status-label">ID / VPA Verify</div>
+            <div class="status-value val-neutral" id="v1">READY</div>
+          </div>
+          <div class="status-card" id="card2">
+            <div class="status-label">Entity Match</div>
+            <div class="status-value val-neutral" id="v2">READY</div>
+          </div>
+          <div class="status-card" id="card3">
+            <div class="status-label">Payload Risk</div>
+            <div class="status-value val-neutral" id="v3">READY</div>
+          </div>
+          <div class="status-card" id="card4">
+            <div class="status-label">Link Integrity</div>
+            <div class="status-value val-neutral" id="v4">READY</div>
+          </div>
+        </div>
+
+        <div class="risk-bar-wrap">
+          <div class="risk-label">
+            <span>RISK INDEX</span>
+            <span id="riskPct">—</span>
+          </div>
+          <div class="risk-track"><div class="risk-fill" id="riskFill"></div></div>
+        </div>
+
+        <div id="verdictBanner"></div>
+      </div>
+
+      <!-- SYSTEM LOG -->
+      <div class="panel">
+        <div class="panel-title">Activity Log · System Feed</div>
+        <div id="sysLog"><p class="log-info">> SYSTEM IDLE... AWAITING INPUT</p></div>
+      </div>
+
+    </main>
+
+    <!-- RIGHT SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-panel">
+        <div class="sidebar-title">Protocol</div>
+        <div style="font-size:11px;line-height:2;opacity:0.7;">
+          <div>UPI://PAY ✓</div>
+          <div>HTTPS:// ✓</div>
+          <div>HTTP:// ✗</div>
+          <div>UNKNOWN ✗</div>
+        </div>
+      </div>
+      <div class="sidebar-panel">
+        <div class="sidebar-title">Flag Legend</div>
+        <div style="font-size:11px;line-height:2.2;">
+          <span class="val-safe">■</span> SECURE<br>
+          <span class="val-warn">■</span> CAUTION<br>
+          <span class="val-danger">■</span> THREAT
+        </div>
+      </div>
+      <div class="sidebar-panel">
+        <div class="sidebar-title">Build</div>
+        <div style="font-size:11px;opacity:0.5;line-height:1.8;">
+          v4.0.2<br>TEAM TRON<br>2026
+        </div>
+      </div>
+    </aside>
+
+  </div>
+</div>
+
+<!-- ABOUT PAGE -->
+<div id="aboutPage" class="page">
+  <div id="aboutContent">
+    <div style="font-family:var(--font-orb);font-size:22px;letter-spacing:4px;text-shadow:0 0 20px var(--cyan);margin-bottom:12px;">
+      CYBER GRID SENTINEL
+    </div>
+    <div class="about-desc">
+      An AI-grade cybersecurity frontend for detecting phishing links,<br>
+      malicious QR codes, and suspicious UPI transactions.<br>
+      Built on TRON-style cyber aesthetics. Runs entirely on-device.
+    </div>
+    <div style="font-size:11px;letter-spacing:2px;opacity:0.4;margin-bottom:30px;">DEVELOPED BY TEAM TRON</div>
+    <div class="team-grid">
+      <div class="team-card"><div class="team-avatar">A</div>ABHINAV</div>
+      <div class="team-card"><div class="team-avatar">Y</div>YASH</div>
+      <div class="team-card"><div class="team-avatar">K</div>KISHAN</div>
+      <div class="team-card"><div class="team-avatar">A</div>ALZAID</div>
+    </div>
+    <div style="margin-top:40px;font-size:11px;opacity:0.3;letter-spacing:3px;">END OF LINE...</div>
+  </div>
+</div>
+
+<footer>END OF LINE. · CYBER GRID SENTINEL · v4.0.2</footer>
+
+<script>
+/* ===== CURSOR ===== */
+const cur = document.getElementById('cursor');
+const trail = document.getElementById('cursor-trail');
+const cross = document.getElementById('cursor-crosshair');
+
+document.addEventListener('mousemove', e => {
+  cur.style.left   = e.clientX + 'px';
+  cur.style.top    = e.clientY + 'px';
+  cross.style.left = e.clientX + 'px';
+  cross.style.top  = e.clientY + 'px';
+  setTimeout(() => {
+    trail.style.left = e.clientX + 'px';
+    trail.style.top  = e.clientY + 'px';
+  }, 80);
+});
+
+document.querySelectorAll('button, .btn, input, .nav-toggle, .team-card').forEach(el => {
+  el.addEventListener('mouseenter', () => {
+    cur.style.transform = 'translate(-50%,-50%) scale(2)';
+    cur.style.background = 'rgba(0,247,255,0.2)';
+  });
+  el.addEventListener('mouseleave', () => {
+    cur.style.transform = 'translate(-50%,-50%) scale(1)';
+    cur.style.background = 'transparent';
+  });
+});
+
+/* ===== NAV ===== */
+function toggleNav() {
+  document.getElementById('navDrop').classList.toggle('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('nav')) document.getElementById('navDrop').classList.remove('open');
+});
+
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(id === 'home' ? 'homePage' : 'aboutPage').classList.add('active');
+  document.getElementById('navDrop').classList.remove('open');
+}
+
+/* ===== LOGGING ===== */
+let scanCount = 0;
+function addLog(msg, type = 'info') {
+  const box = document.getElementById('sysLog');
+  const p = document.createElement('p');
+  p.className = 'log-' + type;
+  const ts = new Date().toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  p.textContent = `[${ts}] > ${msg}`;
+  box.appendChild(p);
+  box.scrollTop = box.scrollHeight;
+}
+
+function setCount(n) {
+  document.getElementById('scanCount').textContent = String(n).padStart(3, '0');
+}
+
+/* ===== QR MOCK FILL ===== */
+document.getElementById('qrFileInput').addEventListener('change', function () {
+  document.getElementById('upiInput').value = 'upi://pay?pa=target@okhdfcbank&pn=Target+Store&am=250.00';
+  addLog('QR data extracted — UPI string loaded.', 'info');
+});
+
+/* ===== HELPERS ===== */
+function getParam(str, key) {
+  const m = str.match(new RegExp(key + '=([^&]+)'));
+  return m ? decodeURIComponent(m[1]) : null;
+}
+function setStatus(id, cardId, text, cls) {
+  const el = document.getElementById(id);
+  el.className = 'status-value ' + cls;
+  el.textContent = text;
+  document.getElementById(cardId).classList.add('has-result');
+}
+function setRisk(score) { // 0-100
+  const fill = document.getElementById('riskFill');
+  fill.style.width = score + '%';
+  if (score >= 70) fill.style.background = 'var(--pink)';
+  else if (score >= 40) fill.style.background = 'var(--orange)';
+  else fill.style.background = 'var(--green)';
+  document.getElementById('riskPct').textContent = score + ' / 100';
+}
+function setVerdict(safe) {
+  const b = document.getElementById('verdictBanner');
+  b.className = safe ? 'safe-verdict' : 'danger-verdict';
+  b.textContent = safe ? '◉ TRANSACTION DEEMED SECURE — PROCEED' : '⚠ SECURITY BREACH DETECTED — DO NOT PROCEED';
+  document.getElementById('lastResultSide').textContent = safe ? '✓ SAFE' : '✗ THREAT';
+  document.getElementById('lastResultSide').style.color = safe ? 'var(--green)' : 'var(--pink)';
+  document.body.className = safe ? 'safe-active' : 'danger-active';
+  setTimeout(() => { if (!safe) document.body.className = ''; }, 4000);
+}
+
+/* ===== MAIN SCAN ===== */
+function executeUPIScan() {
+  const input = document.getElementById('upiInput').value.trim();
+  if (!input) {
+    addLog('ERROR: No input detected.', 'danger');
+    return;
+  }
+
+  // Reset
+  ['v1','v2','v3','v4'].forEach((id,i) => {
+    document.getElementById(id).className = 'status-value val-neutral';
+    document.getElementById(id).textContent = '——';
+    document.getElementById('card'+(i+1)).classList.remove('has-result');
+  });
+  document.getElementById('verdictBanner').className = '';
+  document.getElementById('verdictBanner').textContent = '';
+  document.body.className = '';
+  setRisk(0);
+
+  // Scan line animation
+  const sl = document.getElementById('upiScanLine');
+  sl.className = 'scan-line active';
+  sl.addEventListener('animationend', () => sl.className = 'scan-line', {once:true});
+
+  addLog('Initiating deep scan on target...', 'info');
+  addLog('Analyzing encryption layers...', 'info');
+
+  scanCount++;
+  setCount(scanCount);
+
+  setTimeout(() => {
+    // Detect mode: UPI or URL
+    const isUPI = input.startsWith('upi://');
+    const isHTTPS = input.startsWith('https://');
+
+    let flags = 0;
+
+    if (isUPI) {
+      const vpa  = getParam(input, 'pa') || '';
+      const name = getParam(input, 'pn') || 'Unknown';
+      const amt  = getParam(input, 'am');
+
+      // CHECK 1 — VPA
+      if (vpa.includes('@') && vpa.length > 5) {
+        setStatus('v1','card1','VERIFIED','val-safe');
+        addLog('VPA format valid.', 'safe');
+      } else {
+        setStatus('v1','card1','MALFORMED','val-danger'); flags++;
+        addLog('ALERT: VPA address malformed.', 'danger');
+      }
+
+      // CHECK 2 — Entity match
+      const short = name.split(' ')[0].toLowerCase().replace(/[^a-z]/g,'');
+      if (name !== 'Unknown' && vpa.toLowerCase().includes(short)) {
+        setStatus('v2','card2','MATCHED','val-safe');
+        addLog('Entity name matches VPA.', 'safe');
+      } else {
+        setStatus('v2','card2','MISMATCH','val-danger'); flags++;
+        addLog('WARNING: Name/VPA mismatch detected.', 'warn');
+      }
+
+      // CHECK 3 — Amount
+      const amtVal = amt ? parseFloat(amt) : 0;
+      if (amtVal > 10000) {
+        setStatus('v3','card3','HIGH RISK','val-danger'); flags++;
+        addLog('ALERT: Transaction amount ₹' + amtVal + ' exceeds threshold.', 'danger');
+      } else if (amtVal > 5000) {
+        setStatus('v3','card3','CAUTION','val-warn');
+        addLog('NOTE: Elevated amount ₹' + amtVal + '.', 'warn');
+      } else {
+        setStatus('v3','card3','LOW RISK','val-safe');
+        addLog('Amount within safe limits.', 'safe');
+      }
+
+      // CHECK 4 — Protocol
+      setStatus('v4','card4','UPI SECURE','val-safe');
+      addLog('Protocol: UPI — verified.', 'safe');
+
+    } else {
+      // URL MODE
+      // CHECK 1 — suspicious symbols
+      if (input.includes('@') || /[^\w\-.:/?=#&%+]/.test(input)) {
+        setStatus('v1','card1','SUSPICIOUS','val-danger'); flags++;
+        addLog('ALERT: Unusual characters in URL.', 'danger');
+      } else {
+        setStatus('v1','card1','CLEAN','val-safe');
+        addLog('URL character set clean.', 'safe');
+      }
+
+      // CHECK 2 — keyword traps
+      const trapWords = ['secure','login','verify','bank','update','confirm','wallet'];
+      const found = trapWords.filter(w => input.toLowerCase().includes(w));
+      if (found.length) {
+        setStatus('v2','card2','PHISH WORDS','val-danger'); flags++;
+        addLog('ALERT: Phishing keyword(s): ' + found.join(', '), 'danger');
+      } else {
+        setStatus('v2','card2','NO FLAGS','val-safe');
+        addLog('No phishing keywords found.', 'safe');
+      }
+
+      // CHECK 3 — length / typosquatting
+      if (input.length > 120) {
+        setStatus('v3','card3','HIGH RISK','val-danger'); flags++;
+        addLog('WARNING: Unusually long URL.', 'warn');
+      } else {
+        setStatus('v3','card3','LOW RISK','val-safe');
+        addLog('URL length acceptable.', 'safe');
+      }
+
+      // CHECK 4 — protocol
+      if (isHTTPS) {
+        setStatus('v4','card4','HTTPS ✓','val-safe');
+        addLog('Protocol: HTTPS — encrypted.', 'safe');
+      } else if (input.startsWith('http://')) {
+        setStatus('v4','card4','HTTP ✗','val-warn'); flags++;
+        addLog('WARNING: Unencrypted HTTP protocol.', 'warn');
+      } else {
+        setStatus('v4','card4','UNKNOWN','val-danger'); flags++;
+        addLog('ALERT: Unrecognised protocol.', 'danger');
+      }
+    }
+
+    // Risk score
+    const riskScore = Math.min(100, flags * 28);
+    setRisk(riskScore);
+
+    const safe = flags === 0;
+    setVerdict(safe);
+
+    if (safe) addLog('ANALYSIS COMPLETE: Target is SECURE.', 'safe');
+    else addLog('THREAT CONFIRMED: ' + flags + ' flag(s) raised. Exercise caution.', 'danger');
+
+  }, 1600);
+}
+</script>
+
+</body>
+</html>
